@@ -122,7 +122,6 @@ class Blocking(object):
 
     def set_up(self,
                time_name=None,
-               time_period=None,
                longitude_name=None,
                latitude_name=None,
                pressure_name=None,
@@ -140,8 +139,6 @@ class Blocking(object):
         - *_name (str, optional): Name of required variables in the dataset.
           If None will try to identify them by unit. Exception: pressure has
           to be set if it is contained in dataset. TODO: update this
-        - time_period=None (tuple of str, optional): If given has to be in the
-          form of ('yyyy-mm-dd', 'yyyy-mm-dd'). End date is included.
         - pressure_level=50000. (float, optional): Pressure level to select in
           units of pressure_unit. Has to exist in dataset. Can be set to None if
           pressure is not contained in the dataset.
@@ -149,7 +146,7 @@ class Blocking(object):
         - variable_unit='m', (str, optional): Unit of variable.
         """
 
-        self._set_time_grid(time_name, time_period)
+        self._set_time_grid(time_name)
         self._set_longitude_grid(longitude_name)
         self._set_latitude_grid(latitude_name)
         self._set_pressure(pressure_name, pressure_unit, pressure_level)
@@ -479,11 +476,34 @@ class Blocking(object):
             return ds
         self.ds = ds
 
-    def calculate_gph_from_gp(self, **kwargs):
-        self.ds = ut.calculate_gph_from_gp(self.ds, **kwargs)
+    def calculate_gph_from_gp(self,
+                              gp_name='z',
+                              gp_unit='m**2 s**-2',
+                              gph_name='GeopotentialHeight'):
+        self.ds = ut.calculate_gph_from_gp(self.ds, gp_name, gp_unit, gph_name)
+        logging.info('Calculated GPH from GP')
 
-    def calculate_daily_mean(self, **kwargs):
-        self.ds = ut.calculate_daily_mean(self.ds, **kwargs)
+    def get_time_subset(
+            self, time_name=None, period=None, months=None, season=None):
+        if time_name is None:
+            time_name = ut.get_time_name(self.ds)
+        self.ds = ut.get_time_subset(
+            self.ds, time_name=time_name, period=period,
+            months=months, season=season)
+        logmsg = 'Selected time subset:'
+        if period is not None:
+            logmsg += ' {}'.format(' to '.join(period))
+        if months is not None:
+            logmsg += ' months: {}'.format(', '.join(months))
+        if season is not None:
+            logmsg += ' {}'.format(season)
+        logging.info(logmsg)
+
+    def calculate_daily_mean(self, time_name=None):
+        if time_name is None:
+            time_name = ut.get_time_name(self.ds)
+        self.ds = ut.calculate_daily_mean(self.ds, time_name)
+        logging.info('Calculated daily mean')
 
     def _convert_dimension_to_index(self, dimn, dim=None, idx=None):
         if dim is None and idx is None:
@@ -505,60 +525,59 @@ class Blocking(object):
             return int(delta_index)
         return int(idx)
 
-    def _set_time_grid(self, time_name, period):
-        self._time_name = self._get_variable('since', time_name)
-        self._select_time(period)
+    def _set_time_grid(self, time_name):
+        if time_name is None:
+            self._time_name = ut.get_time_name(self.ds)
+        else:
+            self._time_name = time_name
+        if self._time_name is None:
+            errmsg = 'Name of time dimension was not given and could be found!'
+            raise ValueError(errmsg)
         self._set_grid(self._time_name)
 
-    def _select_time(self, period):
-        if period is not None:
-            logmsg = 'Select {} slice: {}'.format(
-                self._time_name, ' to '.join(period))
-            logging.debug(logmsg)
-            self.ds.sel(**{self._time_name: slice(*period)})
 
-    # TODO: move to utils
-    def _get_variable(self, possible_units, varn=None):
-        """
-        Return a variable name based on given dimension choices. Can be used
-        to detect standard dimension like time, longitude, latitude.
-        NOTE: Since this class works on a xarray.dataset with decode_cf=True
-        the time dimension does not have an unit attribute -> time unit is
-        stored in .encoding
+    # TODO: delete
+    # def _get_variable(self, possible_units, varn=None):
+    #     """
+    #     Return a variable name based on given dimension choices. Can be used
+    #     to detect standard dimension like time, longitude, latitude.
+    #     NOTE: Since this class works on a xarray.dataset with decode_cf=True
+    #     the time dimension does not have an unit attribute -> time unit is
+    #     stored in .encoding
 
-        Parameters:
-        - possible units ([str | list]): Unit string identifying a dimension.
-          Possible options: 'since' (time), degree(s)_east (longitude),
-          degree(s)_north (latitude)
-        - varn=None (str, optional): If given varn has to be a valid dimension
-          and possible_units will be ignored.
-        """
-        if isinstance(possible_units, str):
-            possible_units = [possible_units]
-        if varn is not None and varn not in self.ds:  # if given has to be in ds
-            errmsg = '{} not found in dataset'.format(varn)
-            raise ValueError(errmsg)
-        else:  # try to find by unit
-            for vv in self.ds.variables.keys():
-                if (('units' in self.ds[vv].attrs and
-                    self.ds[vv].attrs['units'] in possible_units) or
-                    ('units' in self.ds[vv].encoding and
-                     self.ds[vv].encoding['units'].split(' ')[1] in possible_units)):
+    #     Parameters:
+    #     - possible units ([str | list]): Unit string identifying a dimension.
+    #       Possible options: 'since' (time), degree(s)_east (longitude),
+    #       degree(s)_north (latitude)
+    #     - varn=None (str, optional): If given varn has to be a valid dimension
+    #       and possible_units will be ignored.
+    #     """
+    #     if isinstance(possible_units, str):
+    #         possible_units = [possible_units]
+    #     if varn is not None and varn not in self.ds:  # if given has to be in ds
+    #         errmsg = '{} not found in dataset'.format(varn)
+    #         raise ValueError(errmsg)
+    #     else:  # try to find by unit
+    #         for vv in self.ds.variables.keys():
+    #             if (('units' in self.ds[vv].attrs and
+    #                 self.ds[vv].attrs['units'] in possible_units) or
+    #                 ('units' in self.ds[vv].encoding and
+    #                  self.ds[vv].encoding['units'].split(' ')[1] in possible_units)):
 
-                    if varn is None:
-                        varn = vv
-                        logmsg = 'Detected {}'.format(varn)
-                        logging.info(logmsg)
-                    else:
-                        errmsg = ' '.join([
-                            '{0} already set! Two {0}',
-                            'dimensions?']).format(varn)
-                        raise ValueError(errmsg)
-            if varn is None:
-                errmsg = 'No dimension detected with units "{}"'.format(
-                    ', '.join(possible_units))
-                raise ValueError(errmsg)
-        return varn
+    #                 if varn is None:
+    #                     varn = vv
+    #                     logmsg = 'Detected {}'.format(varn)
+    #                     logging.info(logmsg)
+    #                 else:
+    #                     errmsg = ' '.join([
+    #                         '{0} already set! Two {0}',
+    #                         'dimensions?']).format(varn)
+    #                     raise ValueError(errmsg)
+    #         if varn is None:
+    #             errmsg = 'No dimension detected with units "{}"'.format(
+    #                 ', '.join(possible_units))
+    #             raise ValueError(errmsg)
+    #     return varn
 
     def _set_grid(self, varn, allow_inverse=False):
         if varn == self._time_name:
@@ -589,13 +608,25 @@ class Blocking(object):
         logging.info(logmsg)
 
     def _set_longitude_grid(self, lon_name):
-        self._longitude_name = self._get_variable(
-            ['degree_east', 'degrees_east'], lon_name)
+        if lon_name is None:
+            self._longitude_name = ut.get_longitude_name(self.ds)
+        else:
+            self._longitude_name = lon_name
+        if self._longitude_name is None:
+            errmsg = ' '.join(['Name of longitude dimension was not',
+                               'given and could not be found'])
+            raise ValueError(errmsg)
         self._set_grid(self._longitude_name)
 
     def _set_latitude_grid(self, lat_name):
-        self._latitude_name = self._get_variable(
-            ['degree_north', 'degrees_north'], lat_name)
+        if lat_name is None:
+            self._latitude_name = ut.get_latitude_name(self.ds)
+        else:
+            self._latitude_name = lat_name
+        if self._latitude_name is None:
+            errmsg = ' '.join(['Name of latitude dimension was not',
+                               'given and could not be found'])
+            raise ValueError(errmsg)
         self._set_grid(self._latitude_name, allow_inverse=True)
 
     def _set_pressure(self, varn, unit, var):
