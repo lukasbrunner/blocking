@@ -1,9 +1,8 @@
-=============
 blocking v0.1
 =============
 
 A Python xarray-based blocking detection algorithm
-==================================================
+--------------------------------------------------
 
 by Lukas Brunner (Wegener Center/University of Graz,
 lukas.brunner@uni-graz.at)
