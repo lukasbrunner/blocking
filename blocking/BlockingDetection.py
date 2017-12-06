@@ -115,7 +115,7 @@ class Blocking(object):
             ds = xarray.Dataset(attrs=self.ds.attrs)
             for varn in save_vars:
                 ds[varn] = self.ds[varn]
-                ds.to_netcdf(path, **kwargs)
+            ds.to_netcdf(path, **kwargs)
         else:
             self.ds.to_netcdf(path, **kwargs)
         logging.info('Saved {}'.format(path))
