@@ -4,7 +4,7 @@
 """
 Calculates a blocking index following Brunner et al. (2017)
 
-Copyright (C) 2017 Lukas Brunner (Wegener Center/University of Graz)
+Copyright (C) 2018 Lukas Brunner (Wegener Center/University of Graz)
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -28,10 +28,15 @@ SOFTWARE.
 
 from blocking.BlockingDetection import Blocking
 
-blk = Blocking()
-blk.read('./../data/erai_geopotential_500hpa_20160101_20161231.nc')
+# INPATH = './../data/RO_GPH_500hPa_20060901-20160831.nc'
+INPATH = './../data/erai_geopotential_500hpa_20160101_20161231.nc'
+OUTPATH = INPATH.replace(
+    'geopotential', 'blocking').replace('.nc', '_Brunner1D.nc')
 
-blk.get_time_subset(period=['2016-03-01', '2016-06-01'], season='MAM')
+blk = Blocking()
+blk.read(INPATH)
+
+blk.get_time_subset()
 blk.calculate_daily_mean()
 blk.calculate_gph_from_gp()
 
@@ -50,6 +55,7 @@ blk.calculate_blocking(
     stationary_pm_days=2,
     longitude_pm_degree=7.5,
     latitude_pm_degree=2.5)
-blk.reduce_to_1D([50, 75])
 
-blk.save('./../data/erai_blocking_20160101-20161231_Brunner1D.nc', 'Blocking')
+blk.reduce_to_1D([0, 75])
+
+blk.save(OUTPATH, 'Blocking')
