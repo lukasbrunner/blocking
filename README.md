@@ -9,3 +9,12 @@ lukas.brunner@uni-graz.at)
 
 To acknowledge this code please cite Brunner et al. (2017,
 https://doi.org/10.5194/amt-2017-205) and Brunner (in prep., PhD thesis).
+
+
+Download sample data set (for examples and tests)
+-------------------------------------------------
+
+Got to the ERA-Interim web page (an account my be required):
+http://apps.ecmwf.int/datasets/data/interim-full-daily/levtype=pl/
+
+Download the variable **Geopotential** at the **500hPa** pressure level as netCDF file. For a nice blocking pattern you should download at least one year (about 30MB). Save the data set in the _data_ folder and the _INPATH_ variable in the scripts accordingly.
