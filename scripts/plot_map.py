@@ -28,6 +28,43 @@ import blocking.utils as ut
 mpl.rc('font', **{'size': 11})
 
 
+def kwargs_blocking(args):
+    if args.range is None:
+        if args.varn == 'Blocking':
+            levels = np.arange(0., .03+.0001, .001)
+            ticks = np.arange(0, .03+.001, .005)
+        elif args.varn == 'IB':
+            levels = np.arange(0., .08+.001, .002)
+            ticks = np.arange(0, .08+.001, .01)
+    else:
+        levels = np.arange(*args.range)
+        if args.ticks is None:
+            ticks = None
+        else:
+            ticks = np.arange(*args.ticks)
+
+
+
+    kwargs = {}
+    # kwargs['levels'] = levels
+    cmap = plt.cm.get_cmap('YlOrRd')
+    colors = cmap(np.linspace(0, len(levels)/(len(levels)+1.), cmap.N))
+    # https://stackoverflow.com/questions/40982050/matplotlib-how-to-cut-the-unwanted-part-of-a-colorbar#40983666
+    cmap_new = mpl.colors.LinearSegmentedColormap.from_list('temp', colors)
+    cmap_new.set_under('w')
+    cmap_new.set_over(cmap(np.linspace(0, 1, len(levels)+10)[-1]))
+    kwargs['extend'] = 'max'
+    kwargs['cmap'] = cmap_new
+    kwargs['vmin'] = levels[1]
+    # http://matplotlib.org/examples/images_contours_and_fields/pcolormesh_levels.html
+    kwargs['norm'] = mpl.colors.BoundaryNorm(
+        levels, ncolors=cmap_new.N, clip=False)
+
+    return kwargs
+
+
+
+
 def get_season(months, str_='{}'):
     if months is None:
         return ''
@@ -83,6 +120,9 @@ def plot(ds, args):
         levels = np.arange(4800, 5900+1, 50)
         ticks = levels[::2]
 
+    # DEBUG:
+    ticks = None
+
     def plot_properties(varn):
         kwargs = {'extend': 'both'}
         if 'Gradient' in varn:
@@ -119,19 +159,20 @@ def plot(ds, args):
 
     p = ds[args.varn].plot.pcolormesh(
         ax=ax,
-        transform=ccrs.PlateCarree(),
-        **plot_properties(args.varn))
+        transform=ccrs.PlateCarree(), **kwargs_blocking(args))
+        # **plot_properties(args.varn))
 
-    # Plot contour at 5800 m (nice Omega shape)
-    color = sns.color_palette('colorblind', 6)[2:]
-    ds_sel = ds.sel(**{'Longitude': np.arange(0, 87.5+.1, 2.5),
-                       'Latitude': np.arange(30, 80+.1, 2.5)})
-    ax.contour(ds_sel[args.varn].Longitude,
-               ds_sel[args.varn].Latitude,
-               ds_sel[args.varn], [5800],
-               linewidths=2.,
-               colors=color
-    )
+
+    # # Plot contour at 5800 m (nice Omega shape)
+    # color = sns.color_palette('colorblind', 6)[2:]
+    # ds_sel = ds.sel(**{'Longitude': np.arange(0, 87.5+.1, 2.5),
+    #                    'Latitude': np.arange(30, 80+.1, 2.5)})
+    # ax.contour(ds_sel[args.varn].Longitude,
+    #            ds_sel[args.varn].Latitude,
+    #            ds_sel[args.varn], [5800],
+    #            linewidths=2.,
+    #            colors=color
+    # )
 
     ax.set_xlabel('Longitude')
     ax.set_xticks(range(-180, 180+1, 60), crs=ccrs.PlateCarree())
@@ -144,9 +185,9 @@ def plot(ds, args):
     ax.yaxis.set_major_formatter(latitude_formatter)
 
 
-    poly = mpl.patches.Polygon([[-10, 30], [-10, 75], [100, 75], [100, 30]],
-                               closed=True, facecolor='none', edgecolor='black', lw=2, ls='-')
-    ax.add_patch(poly)
+    # poly = mpl.patches.Polygon([[-10, 30], [-10, 75], [100, 75], [100, 30]],
+    #                            closed=True, facecolor='none', edgecolor='black', lw=2, ls='-')
+    # ax.add_patch(poly)
 
     # For plot (a)
     # poly = mpl.patches.Polygon([[-180, 55], [180, 55], [180, 65], [-180, 65]],
@@ -175,7 +216,7 @@ def plot(ds, args):
     fig.canvas.mpl_connect('resize_event', resize_colorbar)
     plt.colorbar(
         p, cax=cbar_ax,
-        ticks=ticks)
+        ticks=ticks, extend='max')
     resize_colorbar(None)
 
     title = plot_title(args)
@@ -213,6 +254,15 @@ def read_input():
     parser.add_argument(
         '--title', '-t', dest='title', type=str, default=None,
         help='Title string of the plot.')
+
+    parser.add_argument(
+        '--range', dest='range', default=None,
+        type=lambda x: list(map(float, x.split(','))),
+        help='Colorbar range as np.arange input')
+    parser.add_argument(
+        '--ticks', dest='ticks', default=None,
+        type=lambda x: list(map(float, x.split(','))),
+        help='Colorbar ticks as np.arange input')
 
     args = parser.parse_args()
     logmsg = 'Read parser input: \n\n'
