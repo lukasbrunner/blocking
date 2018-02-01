@@ -19,7 +19,8 @@ import numpy as np
 import matplotlib as mpl
 mpl.use('Agg')
 import matplotlib.pyplot as plt
-import seaborn.apionly as sns
+# import seaborn.apionly as sns
+import seaborn as sns
 import cartopy.crs as ccrs
 from cartopy.mpl.ticker import LongitudeFormatter, LatitudeFormatter
 
@@ -49,17 +50,22 @@ def get_season(months, str_='{}'):
 def plot_title(args):
     if args.title is not None:
         return args.title
+
     str_ = '{} {} to {}{}'.format(
         '{}', args.period[0], args.period[1],
         get_season(args.months, ' ({})'))
+
     if args.varn == 'GeopotentialHeight':
         return str_.format('Mean $500\,$hPa geopotential height [m]')
     elif args.varn == 'GeopotentialHeightGradient_north':
-        return str_.format('Mean $500\,$hPa geopotential height gradient north [m/deg.]')
+        return str_.format(
+            'Mean $500\,$hPa geopotential height gradient north [m/deg.]')
     elif args.varn == 'GeopotentialHeightGradient_south':
-        return str_.format('Mean $500\,$hPa geopotential height gradient south [m/deg.]')
+        return str_.format(
+            'Mean $500\,$hPa geopotential height gradient south [m/deg.]')
     elif args.varn == 'GeopotentialHeightGradient_equator':
-        return str_.format('Mean $500\,$hPa geopotential height gradient equator [m/deg.]')
+        return str_.format(
+            'Mean $500\,$hPa geopotential height gradient equator [m/deg.]')
     elif args.varn == 'Blocking':
         return str_.format('Blocking frequency')
     else:
@@ -76,6 +82,7 @@ def plot(ds, args):
     elif args.varn == 'GeopotentialHeight':
         levels = np.arange(4800, 5900+1, 50)
         ticks = levels[::2]
+
     def plot_properties(varn):
         kwargs = {'extend': 'both'}
         if 'Gradient' in varn:
@@ -184,20 +191,28 @@ def plot(ds, args):
 
 
 def read_input():
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(
+        description=__doc__,
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+
     parser.add_argument(
-        '--filename', '-f', dest='filename', type=str, required=True)
+        dest='filename', metavar='FILENAME', type=str,
+        help='Valid /path/to/file.nc')
     parser.add_argument(
-        '--variable-name', '-v', dest='varn', type=str, required=True)
+        dest='varn', metavar='VARIABLE_NAME', type=str,
+        help='Variable name included in file.nc')
+
     parser.add_argument(
         '--months', '-m', dest='months', default=None,
         type=lambda x: list(map(int, x.split(','))),
-        help='Months as comma-separated integers (default=None)')
+        help='Months as comma-separated integers')
     parser.add_argument(
         '--period', '-p', dest='period', default=['2006-09-01', '2016-08-31'],
-        type=lambda x: list(map(lambda y: str(y.strip()), x.split(','))))
+        type=lambda x: list(map(lambda y: str(y.strip()), x.split(','))),
+        help='Time period in the form "yyyy-mm-dd, yyyy-mm-dd".')
     parser.add_argument(
-        '--title', '-t', dest='title', default=None)
+        '--title', '-t', dest='title', type=str, default=None,
+        help='Title string of the plot.')
 
     args = parser.parse_args()
     logmsg = 'Read parser input: \n\n'
@@ -210,6 +225,7 @@ def read_input():
 def main():
     logging.info('Running program ' + __file__)
     args = read_input()
+
     ds = xarray.open_dataset(args.filename)
 
     time_name = ut.get_time_name(ds)
@@ -217,8 +233,10 @@ def main():
     lat_name = ut.get_latitude_name(ds)
 
     if time_name is not None:
-        ds = ut.get_time_subset(ds, time_name, period=args.period, months=args.months)
+        ds = ut.get_time_subset(
+            ds, time_name, period=args.period, months=args.months)
         ds = ds.mean(time_name).squeeze()
+
     ds = ds.transpose(lat_name, lon_name)
 
     plot(ds, args)
