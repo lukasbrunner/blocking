@@ -9,6 +9,9 @@ __pycache__/
 # netCDF files
 *.nc
 
+# plots
+*.png
+
 # C extensions
 *.so
 
