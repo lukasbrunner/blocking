@@ -9,27 +9,24 @@ Abstract:
 
 """
 import logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 import os
 import argparse
 import xarray
 import numpy as np
+
 import matplotlib as mpl
-mpl.use('Agg')
+# mpl.use('Agg')
 import matplotlib.pyplot as plt
-# import seaborn.apionly as sns
-import seaborn as sns
 import cartopy.crs as ccrs
 from cartopy.mpl.ticker import LongitudeFormatter, LatitudeFormatter
 
 import blocking.utils as ut
 mpl.rc('font', **{'size': 11})
 
-from matplotlib.ticker import MaxNLocator
-
-import plot_map_config as config
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
 
 PLOTPATH = './../plots'
 
@@ -53,13 +50,17 @@ def get_season(months, str_='{}'):
         return str_.format('-'.join(map(str, months)))
 
 
+# TODO: get period from ds
 def get_title(args):
     if args.title is not None:
         return args.title
 
-    return '{} {} to {}{}'.format(
-        args.varn, args.period[0], args.period[1],
-        get_season(args.months, ' ({})'))
+    title = args.varn
+    if args.period is not None:
+        title += ' {} to {}'.format(
+            args.period[0], args.period[1])
+    title += get_season(args.months, ' ({})')
+    return title
 
 
 def get_filename(args):
@@ -85,12 +86,10 @@ def plot(ds, args):
 
     ax.set_global()
     ax.coastlines()
-    cmap = mpl.pyplot.cm.get_cmap('YlOrRd')
 
     lon_name = ut.get_longitude_name(ds)
     lat_name = ut.get_latitude_name(ds)
-    ds = ds.transpose(lon_name, lat_name)
-    import ipdb; ipdb.set_trace()
+    ds = ds.transpose(lat_name, lon_name)
     pc = ax.pcolormesh(ds[lon_name], ds[lat_name], ds[args.varn],
                        **kwargs.pcolormesh)
 
@@ -107,7 +106,6 @@ def plot(ds, args):
         pc, cax=cbar_ax, **kwargs.colorbar)
     resize_colorbar(None)
     # --- done ---
-
 
     ax.set_xlabel('Longitude')
     ax.set_xticks(range(-180, 180+1, 60), crs=ccrs.PlateCarree())
@@ -147,7 +145,7 @@ def read_input():
         help='Months as comma-separated integers')
     parser.add_argument(
         '--period', '-p', dest='period', default=None,
-        #['2006-09-01', '2016-08-31'],
+        # ['2006-09-01', '2016-08-31'],
         type=lambda x: list(map(lambda y: str(y.strip()), x.split(','))),
         help='Time period in the form "yyyy-mm-dd, yyyy-mm-dd".')
     parser.add_argument(
@@ -156,7 +154,6 @@ def read_input():
     parser.add_argument(
         '--plot-filename', '-pf', dest='plotname', default=None, type=str,
         help='Name of the output file with extension (sets filetype)')
-
 
     parser.add_argument(
         '--config-filename', '-c', dest='config', default=None,
