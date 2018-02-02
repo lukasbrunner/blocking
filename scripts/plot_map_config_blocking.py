@@ -14,21 +14,28 @@ pcolormesh = dict(
     vmin = levels[1],
     vmax = levels[-1],
     norm = mpl.colors.BoundaryNorm(levels, ncolors=cmap.N, clip=False),
+    extend='max',
+    cbar_kwargs=dict(
+        label= '',
+        # extend = 'max',
+        ticks = levels[::5]
     )
+)
 
 subplots_adjust = dict(
     hspace=0,
     wspace=0,
-    left=0.1,
-    right=.88,
-    bottom=0.12,
-    top=.92
+    # left=0.1,
+    # right=.88,
+    # bottom=0.12,
+    # top=.92
+    left=.1,
+    right=.87,
+    bottom=0.1,
+    top=.95
+
 )
 
-colorbar = dict(
-    extend = 'max',
-    ticks = levels[::5]
-)
 
 def kwargs_blocking(args):
     if args.range is None:

@@ -113,23 +113,19 @@ def plot(ds, args):
 
     lon_name = ut.get_longitude_name(ds)
     lat_name = ut.get_latitude_name(ds)
-    ds = ds.transpose(lat_name, lon_name)
-    pc = ax.pcolormesh(ds[lon_name], ds[lat_name], ds[args.varn],
-                       **kwargs.pcolormesh)
 
-    # --- make colorbar same size as map ---
-    def resize_colorbar(event):
-        plt.draw()
-        posn = ax.get_position()
-        cbar_ax.set_position(
-            [posn.x0 + posn.width + .01, posn.y0, .04, posn.height])
+    posn = ax.get_position()
+    # cbar_ax = fig.add_axes([posn.x0 + posn.width + .01, posn.y0*1.1, .04,
+    # posn.height])
+    cbar_ax = fig.add_axes([posn.x0 + posn.width + .01, .14, .04, .77])
 
-    cbar_ax = fig.add_axes([0, 0, .1, .1])
-    fig.canvas.mpl_connect('resize_event', resize_colorbar)
-    plt.colorbar(
-        pc, cax=cbar_ax, **kwargs.colorbar)
-    resize_colorbar(None)
-    # --- done ---
+    pc = ds[args.varn].plot.pcolormesh(
+        x=lon_name,
+        y=lat_name,
+        ax=ax,
+        transform=ccrs.PlateCarree(),
+        cbar_ax=cbar_ax,
+        **kwargs.pcolormesh)
 
     ax.set_xlabel('Longitude')
     ax.set_xticks(range(-180, 180+1, 60), crs=ccrs.PlateCarree())
