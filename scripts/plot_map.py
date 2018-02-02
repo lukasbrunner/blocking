@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-# a test
+
 """
 Copyright (C) 2017 Lukas Brunner (Wegener Center/University of Graz)
 
@@ -22,7 +22,11 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
-Abstract: TODO
+Abstract: A simple plot script for longitude-latitude resolved plots on a map.
+TODO:
+- write more config files
+- add the option to draw a rectangle again
+- add the option to draw a contour again
 
 """
 import logging
@@ -98,7 +102,10 @@ def plot(ds, args):
     fig, ax = plt.subplots(
         figsize=(8, 4),
         subplot_kw={
-            'projection': ccrs.PlateCarree(central_longitude=0)})
+            'projection': ccrs.PlateCarree(central_longitude=0)
+            # 'projection': ccrs.Globe()
+        })
+
     fig.subplots_adjust(**kwargs.subplots_adjust)
 
     ax.set_global()
@@ -152,9 +159,10 @@ def read_input():
     parser.add_argument(
         dest='filename', metavar='FILENAME', type=str,
         help='Valid /path/to/file.nc')
+
     parser.add_argument(
-        dest='varn', metavar='VARIABLE_NAME', type=str,
-        help='Variable name included in file.nc')
+        '--variable-name', '-varn', dest='varn', metavar='VARIABLE_NAME',
+        type=str, default=None, help='Variable name included in file.nc')
 
     parser.add_argument(
         '--months', '-m', dest='months', default=None,
@@ -178,17 +186,27 @@ def read_input():
 
     args = parser.parse_args()
 
-    if args.config is None:
-        if args.varn == 'Blocking':
-            args.config = 'plot_map_config_blocking'
-        else:
-            raise NotImplementedError('Write config first!')
-
     logmsg = 'Read parser input: \n\n'
     for ii, jj in sorted(vars(args).iteritems()):
         logmsg += '  {}: {}\n'.format(ii, jj)
     logging.info(logmsg)
     return args
+
+def get_variable_name(ds, args):
+    if args.varn is None:
+        varns = set(ds.variables.keys()).difference(ds.coords)
+        if len(varns) == 1:
+            args.varn = varns.pop()
+        else:
+            errmsg = 'More than one variable in data set! Specify varn'
+            raise IOError(errmsg)
+
+def get_config_filename(args):
+    if args.config is None:
+        if args.varn == 'Blocking':
+            args.config = 'plot_map_config_blocking'
+        else:
+            raise NotImplementedError('Write config first!')
 
 
 def main():
@@ -197,11 +215,14 @@ def main():
 
     ds = xarray.open_dataset(args.filename)
 
+    get_variable_name(ds, args)
+    get_config_filename(args)
+
     time_name = ut.get_time_name(ds)
     if time_name is not None:
         ds = ut.get_time_subset(
             ds, time_name, period=args.period, months=args.months)
-        ds = ds.mean(time_name).squeeze()
+        ds = ds.mean(time_name, keep_attrs=True).squeeze()
 
     plot(ds, args)
 
