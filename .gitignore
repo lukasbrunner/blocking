@@ -6,6 +6,9 @@ __pycache__/
 # emacs backup files
 *~
 
+# netCDF files
+*.nc
+
 # C extensions
 *.so
 
