@@ -215,6 +215,7 @@ class Blocking(object):
         #         self.ds['{}_equator'.format(gradient_name)])
         logging.info('Calculating gradients... DONE')
 
+    # TODO: add kwargs to allow adding attributes to the IB variable
     def calculate_ib(self,
                      gradient_equator_below=0,
                      gradient_pole_below=-10,
@@ -305,9 +306,9 @@ class Blocking(object):
                 (ib_sh, ib_nh),
                 axis=dims.index(self._latitude_name)),
             attrs={
-                'gradient_pole_below': gradient_pole_below,
-                'gradient_equator_below': gradient_equator_below,
-                'gradient_equator2_above': gradient_equator2_above})
+                'gradient_pole_below': str(gradient_pole_below),
+                'gradient_equator_below': str(gradient_equator_below),
+                'gradient_equator2_above': str(gradient_equator2_above)})
         del ib_nh, ib_sh, ds_nh, ds_sh, ds
         logging.info('Calculating IB... DONE')
 
