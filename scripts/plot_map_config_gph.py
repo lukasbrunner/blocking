@@ -10,14 +10,14 @@ cmap.set_under(colors[-1])
 cmap = mpl.colors.ListedColormap(colors[:-1])
 
 pcolormesh = dict(
-    cmap = cmap,
-    norm = mpl.colors.BoundaryNorm(boundaries, ncolors=cmap.N, clip=False),
-    extend='max',
-    cbar_kwargs=dict(
-        label= '',
-        # extend = 'max',
-        ticks = boundaries[::5]
-    )
+    # cmap = cmap,
+    # norm = mpl.colors.BoundaryNorm(boundaries, ncolors=cmap.N, clip=False),
+    # extend='max',
+    # cbar_kwargs=dict(
+    #     label= '',
+    #     # extend = 'max',
+    #     ticks = boundaries[::5]
+    # )
 )
 
 subplots = dict(
@@ -26,7 +26,7 @@ subplots = dict(
         projection =
         # ccrs.Robinson(central_longitude=-90)
         # ccrs.Mollweide()
-        ccrs.PlateCarree(central_longitude=-90)
+        ccrs.PlateCarree(central_longitude=0)
     )
 )
 
@@ -38,20 +38,20 @@ subplots_adjust = dict(
     # bottom=0.12,
     # top=.92
     left=.1,
-    right=.87,
+    right=.83,
     bottom=0.1,
     top=.95
 
 )
 
-polygons = [
-    mpl.patches.Rectangle(
-        xy=[-30, 40],
-        width=90,
-        height=35,
-        facecolor='none',
-        edgecolor='black',
-        lw=1,
-        transform=ccrs.PlateCarree()
-    )
-]
+# polygons = [
+#     mpl.patches.Rectangle(
+#         xy=[-30, 40],
+#         width=90,
+#         height=35,
+#         facecolor='none',
+#         edgecolor='black',
+#         lw=1,
+#         transform=ccrs.PlateCarree()
+#     )
+# ]

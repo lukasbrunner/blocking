@@ -72,14 +72,14 @@ def get_season(months, str_='{}'):
 
 
 # TODO: get period from ds
-def get_title(args):
+def get_title(args, ds):
     if args.title is not None:
         return args.title
 
     title = args.varn
     if args.period is not None:
-        title += ' {} to {}'.format(
-            args.period[0], args.period[1])
+        title += ' {}'.format(
+            ' to '.join(args.period))
     title += get_season(args.months, ' ({})')
     return title
 
@@ -95,28 +95,55 @@ def get_filename(args):
     return filename
 
 
+def get_kwargs_from_config(config):
+
+    if config is None:
+        class kwargs():
+            subplots = dict(
+                figsize = (8, 4),
+                subplot_kw = dict(
+                    projection =
+                    # ccrs.Robinson(central_longitude=-90)
+                    # ccrs.Mollweide()
+                    ccrs.PlateCarree(central_longitude=-90)
+                ))
+            subplots_adjust = dict(
+                left=.1,
+                right=.87,
+                bottom=0.1,
+                top=.95)
+            pcolormesh = dict()
+    else:
+        kwargs = __import__(config)
+
+    return kwargs
+
+
+def draw_polygon(ax, kwargs):
+    if getattr(kwargs, 'polygons', False):
+        if not isinstance(kwargs.polygons, list):
+            kwargs.polygons = list(kwargs.polygons)
+        for poly in kwargs.polygons:
+            ax.add_patch(poly)
+
+
 def plot(ds, args):
 
-    kwargs = __import__(args.config)
+    kwargs = get_kwargs_from_config(args.config)
 
-    fig, ax = plt.subplots(
-        figsize=(8, 4),
-        subplot_kw={
-            'projection': ccrs.PlateCarree(central_longitude=0)
-            # 'projection': ccrs.Globe()
-        })
-
+    fig, ax = plt.subplots(**kwargs.subplots)
     fig.subplots_adjust(**kwargs.subplots_adjust)
-
-    ax.set_global()
-    ax.coastlines()
 
     lon_name = ut.get_longitude_name(ds)
     lat_name = ut.get_latitude_name(ds)
+    lons = range(-180, 180+1, 60)
+    lats = range(-90, 90+1, 30)
+
+    ax.set_global()
+    ax.coastlines()
+    ax.gridlines(xlocs=lons, ylocs=lats, **dict(linestyle = ':'))
 
     posn = ax.get_position()
-    # cbar_ax = fig.add_axes([posn.x0 + posn.width + .01, posn.y0*1.1, .04,
-    # posn.height])
     cbar_ax = fig.add_axes([posn.x0 + posn.width + .01, .14, .04, .77])
 
     pc = ds[args.varn].plot.pcolormesh(
@@ -128,16 +155,24 @@ def plot(ds, args):
         **kwargs.pcolormesh)
 
     ax.set_xlabel('Longitude')
-    ax.set_xticks(range(-180, 180+1, 60), crs=ccrs.PlateCarree())
+    try:  # ticks only work for rectangular coordinate systems
+        ax.set_xticks(lons, crs=ccrs.PlateCarree())
+    except RuntimeError:
+        pass
     longitude_formatter = LongitudeFormatter()
     ax.xaxis.set_major_formatter(longitude_formatter)
 
     ax.set_ylabel('Latitude')
-    ax.set_yticks(range(-90, 90+1, 30), crs=ccrs.PlateCarree())
+    try:
+        ax.set_yticks(lats, crs=ccrs.PlateCarree())
+    except RuntimeError:
+        pass
     latitude_formatter = LatitudeFormatter()
     ax.yaxis.set_major_formatter(latitude_formatter)
 
-    title = get_title(args)
+    draw_polygon(ax, kwargs)
+
+    title = get_title(args, ds)
     ax.set_title(title, y=1.01)
 
     filename = get_filename(args)
@@ -188,6 +223,7 @@ def read_input():
     logging.info(logmsg)
     return args
 
+
 def get_variable_name(ds, args):
     if args.varn is None:
         varns = set(ds.variables.keys()).difference(ds.coords)
@@ -197,12 +233,17 @@ def get_variable_name(ds, args):
             errmsg = 'More than one variable in data set! Specify varn'
             raise IOError(errmsg)
 
+
 def get_config_filename(args):
     if args.config is None:
-        if args.varn == 'Blocking':
-            args.config = 'plot_map_config_blocking'
-        else:
-            raise NotImplementedError('Write config first!')
+        try:
+            if args.varn == 'Blocking':
+                args.config = 'plot_map_config_blocking'
+            if args.varn == 'GeopotentialHeight':
+                args.config = 'plot_map_config_gph'
+            # add config names here
+        except IOError:
+            pass
 
 
 def main():
@@ -218,6 +259,9 @@ def main():
     if time_name is not None:
         ds = ut.get_time_subset(
             ds, time_name, period=args.period, months=args.months)
+        period = ds[time_name][[0,-1]].data
+        if period[0] == period[-1]: period = [period[0]]
+        args.period = map(lambda x: str(x)[:10], period)
         ds = ds.mean(time_name, keep_attrs=True).squeeze()
 
     plot(ds, args)
