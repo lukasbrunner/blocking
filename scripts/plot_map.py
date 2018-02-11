@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 """
-Copyright (C) 2017 Lukas Brunner (Wegener Center/University of Graz)
+Copyright (C) 2018 Lukas Brunner (Wegener Center/University of Graz)
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -24,8 +24,6 @@ SOFTWARE.
 
 Abstract: A simple plot script for longitude-latitude resolved plots on a map.
 TODO:
-- write more config files
-- add the option to draw a rectangle again
 - add the option to draw a contour again
 
 """
@@ -40,6 +38,7 @@ import matplotlib as mpl
 import matplotlib.pyplot as plt
 import cartopy.crs as ccrs
 from cartopy.mpl.ticker import LongitudeFormatter, LatitudeFormatter
+from mpl_toolkits.axes_grid1 import make_axes_locatable
 
 import blocking.utils as ut
 mpl.rc('font', **{'size': 11})
@@ -53,6 +52,17 @@ PLOTPATH = './../plots'
 
 
 def get_season(months, str_='{}'):
+    """
+    Creates a season string.
+
+    Parameters:
+    - months (list of int)
+    - str_ (str, optional): Formatter string, should contain exactly one {}
+      at the position where the season substring is included.
+
+    Returns:
+    str
+    """
     if months is None:
         return ''
     elif len(set(months).difference([1, 2, 12])) == 0:
@@ -71,8 +81,17 @@ def get_season(months, str_='{}'):
         return str_.format('-'.join(map(str, months)))
 
 
-# TODO: get period from ds
 def get_title(args, ds):
+    """
+    Creates a title or returns user set title.
+
+    Parameters:
+    - args (parser object)
+    - ds (xarray dataset)
+
+    Returns:
+    str
+    """
     if args.title is not None:
         return args.title
 
@@ -85,6 +104,15 @@ def get_title(args, ds):
 
 
 def get_filename(args):
+    """
+    Creates a filename or returns user set filename.
+
+    Parameters:
+    - args (parser object)
+
+    Returns:
+    str
+    """
     if args.plotname is not None:
         return args.plotname
 
@@ -96,6 +124,15 @@ def get_filename(args):
 
 
 def get_kwargs_from_config(config):
+    """
+    Sets default settings or imports settings from config file.
+
+    Parameters:
+    - config (str): path/to/config (no extension).
+
+    Returns:
+    config object
+    """
 
     if config is None:
         class kwargs():
@@ -120,6 +157,16 @@ def get_kwargs_from_config(config):
 
 
 def draw_polygon(ax, kwargs):
+    """
+    Draws user defined polygons on the map.
+
+    Parameters:
+    - ax (axis object)
+    - kwargs.polygons (config object): List of polygons to draw.
+
+    Returns:
+    None
+    """
     if getattr(kwargs, 'polygons', False):
         if not isinstance(kwargs.polygons, list):
             kwargs.polygons = list(kwargs.polygons)
@@ -127,33 +174,78 @@ def draw_polygon(ax, kwargs):
             ax.add_patch(poly)
 
 
+# TODO, DEBUG: plots dots in the wrong place when central_longitude != 0
+def draw_dots(ax, ds, args, kwargs):
+    """
+    Draws symbols on the map.
+
+    Parameters:
+    - ax (axis object)
+    - ds (xarray dataset)
+    - args (parser object)
+    - kwargs.dots (config object): ax.scatter kwargs.
+
+    Returns:
+    None
+    """
+    # default settings
+    kwargs = dict(
+        s = .1,
+        color = 'black',
+        marker = 'o',
+        alpha = None)
+    # update settings from config if applicable
+    if getattr(kwargs, 'dots', False):
+        kwargs.update(kwargs.dots)
+
+    if args.indicator is not None:
+        ds = ds.transpose(ut.get_latitude_name(ds), ut.get_longitude_name(ds))
+        var = ds[args.indicator]
+        [lats, lons] = [ds[dimn].data for dimn in var.dims]
+        idxs = np.where(var.data != 0)
+
+        if args.indicator_size is not None:
+            if args.indicator_size > 0 :
+                ms = args.indicator_size
+            else:
+                ms = var.data[idxs] / float(var.max()) * -args.indicator_size
+            # update settings from parser if applicable
+            kwargs.update(dict(s=ms))
+
+        # plot symbol to all coordinates where var != 0
+        ax.scatter(lons[idxs[1]], lats[idxs[0]], **kwargs)
+
+
 def plot(ds, args):
 
     kwargs = get_kwargs_from_config(args.config)
-
-    fig, ax = plt.subplots(**kwargs.subplots)
-    fig.subplots_adjust(**kwargs.subplots_adjust)
 
     lon_name = ut.get_longitude_name(ds)
     lat_name = ut.get_latitude_name(ds)
     lons = range(-180, 180+1, 60)
     lats = range(-90, 90+1, 30)
 
+    # create figure and draw map
+    fig, ax = plt.subplots(**kwargs.subplots)
+    fig.subplots_adjust(**kwargs.subplots_adjust)
+
     ax.set_global()
     ax.coastlines()
     ax.gridlines(xlocs=lons, ylocs=lats, **dict(linestyle = ':'))
 
-    posn = ax.get_position()
-    cbar_ax = fig.add_axes([posn.x0 + posn.width + .01, .14, .04, .77])
+    # create axis for colorbar and adjust it
+    # posn = ax.get_position()
+    # cbar_ax = fig.add_axes([posn.x0 + posn.width + .01, .14, .04, .77])
 
     pc = ds[args.varn].plot.pcolormesh(
         x=lon_name,
         y=lat_name,
         ax=ax,
         transform=ccrs.PlateCarree(),
-        cbar_ax=cbar_ax,
+        # cbar_ax=cbar_ax,
         **kwargs.pcolormesh)
 
+    # set labels and ticks
     ax.set_xlabel('Longitude')
     try:  # ticks only work for rectangular coordinate systems
         ax.set_xticks(lons, crs=ccrs.PlateCarree())
@@ -170,7 +262,9 @@ def plot(ds, args):
     latitude_formatter = LatitudeFormatter()
     ax.yaxis.set_major_formatter(latitude_formatter)
 
+    # optional: draw polygons & dots on the map
     draw_polygon(ax, kwargs)
+    draw_dots(ax, ds, args, kwargs)
 
     title = get_title(args, ds)
     ax.set_title(title, y=1.01)
@@ -183,6 +277,7 @@ def plot(ds, args):
 
 
 def read_input():
+    """Parses input"""
     parser = argparse.ArgumentParser(
         description=__doc__,
         formatter_class=argparse.ArgumentDefaultsHelpFormatter)
@@ -215,6 +310,19 @@ def read_input():
         '--config-filename', '-c', dest='config', default=None,
         type=str, help='Filename of a valid config file')
 
+    parser.add_argument(
+        '--indicator', '-i', dest='indicator', default=None, type=str,
+        help=' '.join([
+            'A valid variable name. Values should be [0, 1] otherwise a',
+            'warning is logged and behaviour might be unexpected. Can be',
+            'used to indicate blocking, significance.']))
+    parser.add_argument(
+        '--indicator-size', '-is', dest='indicator_size', default=None,
+        type=float, help=' '.join([
+            'Size of the indicator. Special convention: if < 0 size will',
+            'be set depending in the value of the indicator variable',
+            'with the maximum value shown as abs(indicator_size)']))
+
     args = parser.parse_args()
 
     logmsg = 'Read parser input: \n\n'
@@ -225,6 +333,7 @@ def read_input():
 
 
 def get_variable_name(ds, args):
+    """Tries to automatically set the variable to plot."""
     if args.varn is None:
         varns = set(ds.variables.keys()).difference(ds.coords)
         if len(varns) == 1:
@@ -235,6 +344,7 @@ def get_variable_name(ds, args):
 
 
 def get_config_filename(args):
+    """Tries to automatically set the config to use."""
     if args.config is None:
         try:
             if args.varn == 'Blocking':
@@ -247,6 +357,7 @@ def get_config_filename(args):
 
 
 def main():
+    """Runs the program"""
     logging.info('Running program ' + __file__)
     args = read_input()
 

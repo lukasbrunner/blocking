@@ -2,22 +2,12 @@ import numpy as np
 import matplotlib as mpl
 import cartopy.crs as ccrs
 
-boundaries = np.arange(0., .031, .001)
-cmap = mpl.pyplot.cm.get_cmap('YlOrRd', len(boundaries))
-colors = list(cmap(np.arange(len(boundaries))))
-colors[0] = 'white'
-cmap.set_under(colors[-1])
-cmap = mpl.colors.ListedColormap(colors[:-1])
-
 pcolormesh = dict(
-    # cmap = cmap,
-    # norm = mpl.colors.BoundaryNorm(boundaries, ncolors=cmap.N, clip=False),
-    # extend='max',
-    # cbar_kwargs=dict(
-    #     label= '',
-    #     # extend = 'max',
-    #     ticks = boundaries[::5]
-    # )
+    cbar_kwargs=dict(
+        label= '',
+        fraction=0.024,
+        pad=0.02,
+    )
 )
 
 subplots = dict(
@@ -33,12 +23,8 @@ subplots = dict(
 subplots_adjust = dict(
     hspace=0,
     wspace=0,
-    # left=0.1,
-    # right=.88,
-    # bottom=0.12,
-    # top=.92
     left=.1,
-    right=.83,
+    right=.92,
     bottom=0.1,
     top=.95
 

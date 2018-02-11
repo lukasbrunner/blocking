@@ -15,6 +15,8 @@ pcolormesh = dict(
     extend='max',
     cbar_kwargs=dict(
         label= '',
+        fraction=0.0228,
+        pad=0.02,
         # extend = 'max',
         ticks = boundaries[::5]
     )
@@ -38,7 +40,7 @@ subplots_adjust = dict(
     # bottom=0.12,
     # top=.92
     left=.1,
-    right=.87,
+    right=.92,
     bottom=0.1,
     top=.95
 
