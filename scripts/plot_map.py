@@ -32,13 +32,13 @@ import os
 import argparse
 import xarray
 import numpy as np
+from collections import OrderedDict
 
 import matplotlib as mpl
 # mpl.use('Agg')
 import matplotlib.pyplot as plt
 import cartopy.crs as ccrs
 from cartopy.mpl.ticker import LongitudeFormatter, LatitudeFormatter
-from mpl_toolkits.axes_grid1 import make_axes_locatable
 
 import blocking.utils as ut
 mpl.rc('font', **{'size': 11})
@@ -174,7 +174,6 @@ def draw_polygon(ax, kwargs):
             ax.add_patch(poly)
 
 
-# TODO, DEBUG: plots dots in the wrong place when central_longitude != 0
 def draw_dots(ax, ds, args, kwargs):
     """
     Draws symbols on the map.
@@ -193,7 +192,10 @@ def draw_dots(ax, ds, args, kwargs):
         s = .1,
         color = 'black',
         marker = 'o',
-        alpha = None)
+        transform=ccrs.PlateCarree(),
+        # edgecolor='none',  # suppresses strange behaviour for s<1
+        # alpha = None
+    )
     # update settings from config if applicable
     if getattr(kwargs, 'dots', False):
         kwargs.update(kwargs.dots)
@@ -209,12 +211,31 @@ def draw_dots(ax, ds, args, kwargs):
                 ms = args.indicator_size
             else:
                 ms = var.data[idxs] / float(var.max()) * -args.indicator_size
+
             # update settings from parser if applicable
             kwargs.update(dict(s=ms))
 
         # plot symbol to all coordinates where var != 0
-        ax.scatter(lons[idxs[1]], lats[idxs[0]], **kwargs)
+        sp = ax.scatter(lons[idxs[1]], lats[idxs[0]], **kwargs)
 
+        # make labels
+        if len(np.unique(kwargs['s'])) == 1:  # only one dot size
+            sp = ax.scatter(999, 999, **kwargs)
+            legend = ax.legend([sp], [args.indicator], scatterpoints=1,
+                               loc='lower right', fontsize='xx-small')
+        else:  # multiple dot sizes
+            sp = OrderedDict()
+            for pp in [25, 50, 75, 100]:  # percentiles
+                kwargs.update(dict(s=np.percentile(ms, pp)))
+                ll = '{}p: {:.2%}'.format(pp, np.percentile(var.data[idxs], pp))
+                sp[ll] = ax.scatter(999, 999, **kwargs)
+            # /make labels
+            legend = ax.legend(sp.values(), sp.keys(),
+                               title=args.indicator,
+                               scatterpoints=1,
+                               loc='lower right',
+                               fontsize='xx-small')
+        plt.setp(legend.get_title(), fontsize='x-small')  # adjust title size
 
 def plot(ds, args):
 
