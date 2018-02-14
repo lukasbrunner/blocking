@@ -174,7 +174,7 @@ def draw_polygon(ax, kwargs):
             ax.add_patch(poly)
 
 
-def draw_dots(ax, ds, args, kwargs):
+def draw_dots(ax, ds, args, kwargs_config):
     """
     Draws symbols on the map.
 
@@ -197,8 +197,8 @@ def draw_dots(ax, ds, args, kwargs):
         # alpha = None
     )
     # update settings from config if applicable
-    if getattr(kwargs, 'dots', False):
-        kwargs.update(kwargs.dots)
+    if getattr(kwargs_config, 'dots', False):
+        kwargs.update(kwargs_config.dots)
 
     if args.indicator is not None:
         ds = ds.transpose(ut.get_latitude_name(ds), ut.get_longitude_name(ds))
