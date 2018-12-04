@@ -109,12 +109,10 @@ def get_latitude_name(ds):
 
 def get_time_name(ds):
     for varn in ds.variables.keys():
-        if (
-            ('units' in ds[varn].attrs and
-             'since' in ds[varn].attrs['units'])
-            #    ('units' in ds[varn].encoding and
-            # ds[varn].encoding['units'].split(' ')[1] == 'since')
-        ):
+        if (('units' in ds[varn].attrs and
+             'since' in ds[varn].attrs['units']) or
+            ('units' in ds[varn].encoding and
+             'since' in ds[varn].encoding['units'])):
             return varn
     for varn in ds.variables.keys():
         try:
