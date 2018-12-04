@@ -347,7 +347,7 @@ def read_input():
     args = parser.parse_args()
 
     logmsg = 'Read parser input: \n\n'
-    for ii, jj in sorted(vars(args).iteritems()):
+    for ii, jj in sorted(vars(args).items()):
         logmsg += '  {}: {}\n'.format(ii, jj)
     logging.info(logmsg)
     return args
