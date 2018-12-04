@@ -4,7 +4,8 @@
 """
 BlockingDetection is a blocking detection algorithm based on xarray.
 
-Copyright (C) 2017 Lukas Brunner (Wegener Center/University of Graz)
+Copyright (C) 2017-2018 Lukas Brunner (Wegener Center/University of Graz &
+Institute for Atmospheric and Climate Science, ETH Zurich)
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -24,7 +25,6 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 """
-
 import logging
 import numpy as np
 import xarray
@@ -32,10 +32,12 @@ from scipy.ndimage import measurements
 
 import blocking.utils as ut
 
+
 class Blocking(object):
     """
     An xarray-based blocking detection algorithm. For a theoretical
-    discussion see Brunner, L. (PhD thesis, in prep.).
+    discussion see Brunner, L. (PhD thesis, 2018).
+    http://iacweb.ethz.ch/staff/lukbrunn/welcome/files/Brunner2018_PhD.pdf
     """
 
     def __repr__(self):
@@ -129,7 +131,8 @@ class Blocking(object):
                pressure_unit='pa',
                variable_name='GeopotentialHeight',
                variable_unit='m',
-               keep_vars=None):
+               keep_vars=None,
+               force=False):
         """
         Prepares the dataset for blocking detection. Does consistency checks
         and tests if all required information is available. Sets internal
@@ -144,11 +147,12 @@ class Blocking(object):
           pressure is not contained in the dataset.
         - pressure_unit='pa' (str, optional): Unit of pressure_level.
         - variable_unit='m', (str, optional): Unit of variable.
+        - force=False, (bool, optional): Skip some consistency checks.
         """
 
         self._set_time_grid(time_name)
-        self._set_longitude_grid(longitude_name)
-        self._set_latitude_grid(latitude_name)
+        self._set_longitude_grid(longitude_name, force=force)
+        self._set_latitude_grid(latitude_name, force=force)
         self._set_pressure(pressure_name, pressure_unit, pressure_level)
 
         self._set_variable(variable_name, variable_unit)
@@ -260,13 +264,13 @@ class Blocking(object):
                         pressure_level)
                 raise ValueError(errmsg)
 
-            ds = self.ds.sel(**{self._pressure_name:pressure_level})
+            ds = self.ds.sel(**{self._pressure_name: pressure_level})
         else:
             ds = self.ds
 
         lats = ds.variables[self._latitude_name].data
-        ds_nh = ds.sel(**{self._latitude_name:lats[lats>=0]})
-        ds_sh = ds.sel(**{self._latitude_name:lats[lats<0]})
+        ds_nh = ds.sel(**{self._latitude_name: lats[lats >= 0]})
+        ds_sh = ds.sel(**{self._latitude_name: lats[lats < 0]})
 
         def _test_thresholds(g1, g2, g3, t1, t2, t3):
             if t3 is None and t1 is None:
@@ -335,7 +339,7 @@ class Blocking(object):
 
         var, lon_axis = self._swap_to_front(
             self.ds[self.ib_name], self._longitude_name)
-        var = var.data # TODO: do empty like before and eib will become a xarray automatically
+        var = var.data  # TODO: do empty like before and eib will become a xarray automatically
         eib = np.zeros_like(var)
         var_add = var[:didx]
         var = np.concatenate((var, var_add))  # allow structures to cross date border
@@ -366,7 +370,7 @@ class Blocking(object):
         self.ds[self.eib_name] = xarray.Variable(
             self.ds[self.ib_name].dims,
             eib, attrs={
-                'min_longitude_extent':didx,
+                'min_longitude_extent': didx,
                 'min_longitude_extent_unit': 'grid_points'})
         del var, eib, labels, slices
         logging.info('Calculating extended IB... DONE')
@@ -420,21 +424,21 @@ class Blocking(object):
                 logging.info('Calculating time step... {:.0%}'.format(
                     float(i_time) / self.ds.dims[self._time_name]))
 
-            eib = var.isel(**{self._time_name:i_time})
+            eib = var.isel(**{self._time_name: i_time})
 
             # Weak border criterion: if neighbor is out of range remove it
             idx = [i_time - dd for dd in range(1, didx_time+1) if i_time >= dd]
             idx += [i_time + dd for dd in range(1, didx_time+1)
                     if i_time + dd < self.ds.dims[self._time_name]]
-            eib_neighbours = var.isel(**{self._time_name:idx})
+            eib_neighbours = var.isel(**{self._time_name: idx})
 
             # TODO: implement strong border criterion: if neighbor is out of range
             # shift it to the other side
 
-            for i_lon, i_lat in zip(*np.where(eib.data==1)):
-                lons = map(lambda x: x - self.ds.dims[self._longitude_name]
-                           if x >= self.ds.dims[self._longitude_name] else x,
-                           range(i_lon - didx_lon, i_lon + didx_lon + 1))
+            for i_lon, i_lat in zip(*np.where(eib.data == 1)):
+                lons = [*map(lambda x: x - self.ds.dims[self._longitude_name]
+                             if x >= self.ds.dims[self._longitude_name] else x,
+                             range(i_lon - didx_lon, i_lon + didx_lon + 1))]
 
                 # TODO: latitude could theoretically be out of range with a
                 # very large value of latitude_pm -> check here
@@ -448,8 +452,8 @@ class Blocking(object):
                 # ---
 
                 box = eib_neighbours.isel(**{
-                    self._longitude_name:lons,
-                    self._latitude_name:lats})
+                    self._longitude_name: lons,
+                    self._latitude_name: lats})
                 if np.all(box.sum(dim=[self._longitude_name,
                                        self._latitude_name])) > 0:
                     # Weak blocking criterion
@@ -536,60 +540,35 @@ class Blocking(object):
             raise ValueError(errmsg)
         self._set_grid(self._time_name)
 
-
-    # TODO: delete
-    # def _get_variable(self, possible_units, varn=None):
-    #     """
-    #     Return a variable name based on given dimension choices. Can be used
-    #     to detect standard dimension like time, longitude, latitude.
-    #     NOTE: Since this class works on a xarray.dataset with decode_cf=True
-    #     the time dimension does not have an unit attribute -> time unit is
-    #     stored in .encoding
-
-    #     Parameters:
-    #     - possible units ([str | list]): Unit string identifying a dimension.
-    #       Possible options: 'since' (time), degree(s)_east (longitude),
-    #       degree(s)_north (latitude)
-    #     - varn=None (str, optional): If given varn has to be a valid dimension
-    #       and possible_units will be ignored.
-    #     """
-    #     if isinstance(possible_units, str):
-    #         possible_units = [possible_units]
-    #     if varn is not None and varn not in self.ds:  # if given has to be in ds
-    #         errmsg = '{} not found in dataset'.format(varn)
-    #         raise ValueError(errmsg)
-    #     else:  # try to find by unit
-    #         for vv in self.ds.variables.keys():
-    #             if (('units' in self.ds[vv].attrs and
-    #                 self.ds[vv].attrs['units'] in possible_units) or
-    #                 ('units' in self.ds[vv].encoding and
-    #                  self.ds[vv].encoding['units'].split(' ')[1] in possible_units)):
-
-    #                 if varn is None:
-    #                     varn = vv
-    #                     logmsg = 'Detected {}'.format(varn)
-    #                     logging.info(logmsg)
-    #                 else:
-    #                     errmsg = ' '.join([
-    #                         '{0} already set! Two {0}',
-    #                         'dimensions?']).format(varn)
-    #                     raise ValueError(errmsg)
-    #         if varn is None:
-    #             errmsg = 'No dimension detected with units "{}"'.format(
-    #                 ', '.join(possible_units))
-    #             raise ValueError(errmsg)
-    #     return varn
-
-    def _set_grid(self, varn, allow_inverse=False):
+    def _set_grid(self, varn, allow_inverse=False, force=False):
         if varn == self._time_name:
-            var = self.ds[varn].to_index().to_julian_date()
+            try:
+                var = self.ds[varn].to_index()
+                delta = np.unique((var[1:] - var[:-1]).astype('timedelta64[D]'))
+            except AttributeError:  # dates outside of normal range
+                # we can still move on if the unit is "days since ..."
+                if ('units' in self.ds[varn].attrs and
+                    'days' in self.ds[varn].attrs['units']):
+                    var = self.ds[varn].data
+                    delta = np.unique(var[1:] - var[:-1])
+                else:
+                    errmsg = 'Can not decode time with unit {}'.format(
+                        self.ds[varn].attrs['units'])
+                    raise ValueError(errmsg)
         else:
             var = self.ds[varn].data
-        delta = np.unique(var[1:] - var[:-1])
-        if len(delta) != 1:
+            delta = np.unique(var[1:] - var[:-1])
+        if len(delta) > 1:
             errmsg = 'No regular grid found for dimension {}'.format(varn)
-            raise ValueError(errmsg)
-        if delta[0] == 0:
+            if force:
+                logging.warning(errmsg)
+                logmsg = ' '.join(['force=True: using mean of non-equidistant',
+                                   'grid {}'.format(delta)])
+                logging.warning(logmsg)
+                delta = [round(delta.mean(), 2)]
+            else:
+                raise ValueError(errmsg)
+        elif delta[0] == 0:
             errmsg = 'Two equivalent values found for dimension {}.'.format(
                 varn)
             raise ValueError(errmsg)
@@ -608,7 +587,7 @@ class Blocking(object):
         logmsg = 'Set {} grid distance {}'.format(varn, delta[0])
         logging.info(logmsg)
 
-    def _set_longitude_grid(self, lon_name):
+    def _set_longitude_grid(self, lon_name, force=False):
         if lon_name is None:
             self._longitude_name = ut.get_longitude_name(self.ds)
         else:
@@ -617,9 +596,9 @@ class Blocking(object):
             errmsg = ' '.join(['Name of longitude dimension was not',
                                'given and could not be found'])
             raise ValueError(errmsg)
-        self._set_grid(self._longitude_name)
+        self._set_grid(self._longitude_name, force=force)
 
-    def _set_latitude_grid(self, lat_name):
+    def _set_latitude_grid(self, lat_name, force=False):
         if lat_name is None:
             self._latitude_name = ut.get_latitude_name(self.ds)
         else:
@@ -628,7 +607,7 @@ class Blocking(object):
             errmsg = ' '.join(['Name of latitude dimension was not',
                                'given and could not be found'])
             raise ValueError(errmsg)
-        self._set_grid(self._latitude_name, allow_inverse=True)
+        self._set_grid(self._latitude_name, allow_inverse=True, force=force)
 
     def _set_pressure(self, varn, unit, var):
         if varn is None:
@@ -664,7 +643,7 @@ class Blocking(object):
 
     def _select_pressure(self, var):
         if self._pressure_name is not None and var is not None:
-            self.ds = self.ds.sel(**{self._pressure_name:var})
+            self.ds = self.ds.sel(**{self._pressure_name: var})
 
     def _set_variable(self, varn, unit):
         if varn not in self.ds:
