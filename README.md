@@ -8,7 +8,7 @@ by Lukas Brunner (Wegener Center/University of Graz,
 lukas.brunner@uni-graz.at)
 
 To acknowledge this code please cite Brunner et al. (2017,
-https://doi.org/10.5194/amt-10-4727-2017) and Brunner (2018, PhD thesis; will become publicly available soon).
+https://doi.org/10.5194/amt-10-4727-2017) and Brunner ([2018](http://iacweb.ethz.ch/staff/lukbrunn/welcome/files/Brunner2018_PhD.pdf)).
 
 Please also note the [LICENSE](./LICENSE)
 
