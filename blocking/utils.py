@@ -31,8 +31,7 @@ def calculate_daily_mean(ds, time_name='time'):
     """
     Calculates the daily mean.
     """
-    return ds.resample(
-        '1d', dim=time_name, how='mean', keep_attrs=True)
+    return ds.resample({time_name: '1d'}).mean(keep_attrs=True)
 
 
 def calculate_gph_from_gp(ds,
