@@ -30,7 +30,7 @@ import numpy as np
 import xarray
 from scipy.ndimage import measurements
 
-import utils as ut
+import blocking_utils as ut
 
 
 class Blocking(object):
