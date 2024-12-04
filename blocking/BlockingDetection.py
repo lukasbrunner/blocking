@@ -150,7 +150,7 @@ class Blocking(object):
         - force=False, (bool, optional): Skip some consistency checks.
         """
 
-        self._set_time_grid(time_name)
+        self._set_time_grid(time_name, force=force)
         self._set_longitude_grid(longitude_name, force=force)
         self._set_latitude_grid(latitude_name, force=force)
         self._set_pressure(pressure_name, pressure_unit, pressure_level)
@@ -530,7 +530,7 @@ class Blocking(object):
             return int(delta_index)
         return int(idx)
 
-    def _set_time_grid(self, time_name):
+    def _set_time_grid(self, time_name, force=False):
         if time_name is None:
             self._time_name = ut.get_time_name(self.ds)
         else:
@@ -538,13 +538,13 @@ class Blocking(object):
         if self._time_name is None:
             errmsg = 'Name of time dimension was not given and could be found!'
             raise ValueError(errmsg)
-        self._set_grid(self._time_name)
+        self._set_grid(self._time_name, force=force)
 
     def _set_grid(self, varn, allow_inverse=False, force=False):
         if varn == self._time_name:
             try:
                 var = self.ds[varn].to_index()
-                delta = np.unique((var[1:] - var[:-1]).astype('timedelta64[D]'))
+                delta = np.unique((var[1:] - var[:-1]))
             except AttributeError:  # dates outside of normal range
                 # we can still move on if the unit is "days since ..."
                 if ('units' in self.ds[varn].attrs and
