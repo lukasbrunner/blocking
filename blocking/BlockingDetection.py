@@ -544,7 +544,7 @@ class Blocking(object):
         if varn == self._time_name:
             try:
                 var = self.ds[varn].to_index()
-                delta = np.unique((var[1:] - var[:-1]))
+                delta = np.unique(np.array((var[1:] - var[:-1])).astype('timedelta64[D]'))
             except AttributeError:  # dates outside of normal range
                 # we can still move on if the unit is "days since ..."
                 if ('units' in self.ds[varn].attrs and
